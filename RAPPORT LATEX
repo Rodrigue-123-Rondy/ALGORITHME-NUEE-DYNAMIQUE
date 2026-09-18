@@ -1,0 +1,151 @@
+\documentclass[12pt, a4paper]{article}
+
+% --- Paquets requis ---
+\usepackage[utf8]{utf8}
+\usepackage[french]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath, amsfonts, amssymb} % Pour les formules mathématiques
+\usepackage{graphicx}                  % Pour l'insertion d'images
+\usepackage{float}                     % Pour le placement des figures [H]
+\usepackage{hyperref}                  % Pour les liens hypertexte et GitHub
+\usepackage{geometry}                  % Pour ajuster les marges
+\usepackage{listings}                  % Pour inclure du code Python proprement
+\usepackage{xcolor}
+
+\geometry{margin=2.5cm}
+
+% Configuration de l'affichage du code Python
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{pythonstyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\small,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=4
+}
+\lstset{style=pythonstyle}
+
+% --- Informations du document ---
+\title{\textbf{Rapport de TP : Implémentation des Nuées Dynamiques (\textit{K-Means}) \textit{from scratch}}}
+\author{\textbf{NDJIBU MUPENDA RODRIGUE} \\ Master 1/Licence Science des Données}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\hrule
+\vspace{0.5cm}
+
+\begin{abstract}
+Ce rapport présente la mise en œuvre \textit{from scratch} de l'algorithme de clustering des Nuées Dynamiques (K-Means) en Python. L'évaluation est réalisée sur le jeu de données classique \textit{Iris}. Le code source complet et les historiques de versions sont accessibles sur le dépôt GitHub officiel du projet.
+\end{abstract}
+
+\vspace{0.5cm}
+\hrule
+\vspace{1cm}
+
+\section{Introduction}
+Dans le cadre de l'apprentissage non supervisé, le clustering consiste à partitionner un ensemble de données en groupes homogènes (clusters). L'algorithme des **Nuées Dynamiques** est l'un des algorithmes de partitionnement les plus fondamentaux. L'objectif de ce TP est d'implémenter cet algorithme sans utiliser de bibliothèques tierces spécialisées de haut niveau pour le modèle (telles que \texttt{scikit-learn}), et d'analyser ses performances sur un jeu de données réel.
+
+\section{Fondements Théoriques}
+L'algorithme vise à partitionner $N$ observations $X = \{x_1, x_2, \dots, x_N\}$ en $K$ clusters $C = \{C_1, C_2, \dots, C_K\}$, représentés par leurs centres de gravité (prototypes) $\mu = \{\mu_1, \mu_2, \dots, \mu_K\}$.
+
+\subsection{Distance Euclidienne}
+L'affectation d'une observation $x_i$ à un cluster repose sur la distance euclidienne par rapport au centre $\mu_j$ :
+\begin{equation}
+    d(x_i, \mu_j) = \sqrt{\sum_{k=1}^{p} (x_{ik} - \mu_{jk})^2} = \|x_i - \mu_j\|_2
+\end{equation}
+
+\subsection{Fonction d'Inertie Intraclasse}
+L'objectif d'optimisation est de minimiser l'inertie intraclasse $W(K)$, définie par :
+\begin{equation}
+    W(K) = \sum_{j=1}^{K} \sum_{x_i \in C_j} \|x_i - \mu_j\|^2
+\end{equation}
+
+\subsection{Déroulement de l'Algorithme}
+1. \textbf{Initialisation :} Choix aléatoire de $K$ individus comme centres initiaux $\{\mu_1^{(0)}, \dots, \mu_K^{(0)}\}$.
+2. \textbf{Affectation :} Attribution de chaque point $x_i$ au centre le plus proche :
+\begin{equation}
+    C_j^{(t)} = \{ x_i : \|x_i - \mu_j^{(t)}\| \le \|x_i - \mu_l^{(t)}\|, \forall 1 \le l \le K \}
+\end{equation}
+3. \textbf{Mise à jour :} Recalcul des centroïdes :
+\begin{equation}
+    \mu_j^{(t+1)} = \frac{1}{|C_j^{(t)}|} \sum_{x_i \in C_j^{(t)}} x_i
+\end{equation}
+4. \textbf{Convergence :} Répétition jusqu'à la stabilisation des centres ($\|\mu^{(t+1)} - \mu^{(t)}\| < \epsilon$).
+
+\section{Implémentation et Expérimentations}
+L'implémentation a été réalisée sous environnement Python (Google Colab). Le jeu de données \textit{Iris} a été retenu en ne conservant que les deux premières variables (\textit{sepal length} et \textit{sepal width}) afin de permettre une visualisation $2D$ claire.
+
+\subsection{Aperçu de la méthode principale}
+Voici un extrait du coeur de l'algorithme codé en Python :
+
+\begin{lstlisting}[language=Python, caption={Extrait de la classe NueesDynamiques}]
+def fit(self, X):
+    # 1. Initialisation des centres
+    indices = np.random.choice(len(X), self.k, replace=False)
+    self.centres = X[indices]
+
+    for i in range(self.max_iter):
+        # 2. Affectation
+        distances = np.array([np.linalg.norm(X - c, axis=1) for c in self.centres])
+        labels = np.argmin(distances, axis=0)
+
+        # 3. Mise a jour des centres
+        nouveaux_centres = np.array([X[labels == j].mean(axis=0) for j in range(self.k)])
+
+        # 4. Convergence
+        if np.linalg.norm(nouveaux_centres - self.centres) < self.tol:
+            break
+        self.centres = nouveaux_centres
+    return labels
+\end{lstlisting}
+
+\subsection{Résultats de la Segmentation}
+Le modèle a été exécuté avec un nombre de clusters $K = 3$. La Figure \ref{fig:clustering} illustre la partition obtenue ainsi que les positions des centroïdes finaux.
+
+\begin{figure}[H]
+    \centering
+    % Assurez-vous que l'image est dans le meme dossier que le fichier .tex
+    \includegraphics[width=0.75\textwidth]{téléchargement.png}
+    \caption{Segmentation des données Iris ($K=3$) par l'algorithme des Nuées Dynamiques.}
+    \label{fig:clustering}
+\end{figure}
+
+\section{Analyse et Discussion}
+Les résultats montrent une convergence rapide du modèle en quelques itérations. Les trois partitions se distinguent clairement :
+\begin{itemize}
+    \item Un cluster bien séparé linéairement des deux autres sur la gauche.
+    \item Deux clusters partiellement chevauchants sur la droite, ce qui reflète la structure réelle du jeu de données Iris lors de l'utilisation de seulement deux caractéristiques.
+\end{itemize}
+
+\textbf{Limite :} L'algorithme reste sensible au choix des centres initiaux. Une mauvaise initialisation peut parfois mener à un minimum local.
+
+\section{Lien du Projet GitHub}
+Le code source complet, incluant le fichier Notebook Google Colab ainsi que ce document LaTeX, est disponible sur le dépôt GitHub suivant :
+
+\begin{center}
+    \url{https://github.com/Rodrigue-123-Rondy/ALGORITHME-NUEE-DYNAMIQUE}
+\end{center}
+
+\section{Conclusion}
+Cette implémentation \textit{from scratch} a permis de valider la compréhension pratique et théorique du fonctionnement des Nuées Dynamiques. L'algorithme offre des performances satisfaisantes et compréhensibles sur des jeux de données de faible dimensionnalité.
+
+\end{document}
+
